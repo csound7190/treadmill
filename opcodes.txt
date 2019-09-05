@@ -1,0 +1,91 @@
+
+opcode freqShift, a, ak
+  
+	ain, kfreq	xin
+	
+	; Phase quadrature output derived from input signal.
+	areal, aimag hilbert ain
+	 
+	; Sine table for quadrature oscillator.
+	iSineTable ftgenonce	0, 0, 16384, 10, 1
+
+	; Quadrature oscillator.
+	asin oscili 1, kfreq, iSineTable
+	acos oscili 1, kfreq, iSineTable, .25
+	 
+	; Use a trigonometric identity. 
+	; See the references for further details.
+	amod1 = areal * acos
+	amod2 = aimag * asin
+	
+	; Both sum and difference frequencies can be 
+	; output at once.
+	; aupshift corresponds to the sum frequencies.
+	aupshift = (amod1 + amod2) * 0.7
+	; adownshift corresponds to the difference frequencies. 
+	adownshift = (amod1 - amod2) * 0.7
+	
+	; Notice that the adding of the two together is
+	; identical to the output of ring modulation.
+	
+	xout aupshift
+endop
+
+opcode ensembleChorus, aa, akkkkiip
+ain, kdelay, kdpth, kmin, kmax, inumvoice, iwave, icount xin
+incr = 1/(inumvoice)
+
+if (icount == inumvoice) goto out
+ainl, ainr ensembleChorus ain, kdelay, kdpth, kmin, kmax, inumvoice, iwave, icount + 1
+
+out:
+
+max:
+imax = i(kmax)
+if (kmax != imax) then 
+reinit max
+endif
+
+iratemax unirand imax
+rireturn
+alfo oscil kdpth, iratemax + kmin, iwave
+adel vdelay3 ain/(inumvoice * .5), (kdelay + alfo) * 1000, 1000
+al = ainl + adel * incr * icount
+ar = ainr + adel * (1 - incr * icount)
+xout al, ar
+	endop
+
+opcode	decimator, a, akk
+	setksmps	1
+ain, kbit, ksrate		xin
+
+kbits    = 2^kbit			; Bit depth (1 to 16)
+kfold    = (sr/ksrate)			; Sample rate
+kin      downsamp  ain			; Convert to kr
+kin      = (kin + 32768)		; Add DC to avoid (-)
+kin      = kin*(kbits / 65536)		; Divide signal level
+kin      = int(kin)			; Quantise
+aout     upsamp  kin			; Convert to sr
+aout     = aout * (65536/kbits) - 32768	; Scale and remove DC
+
+a0ut     fold  aout, kfold		; Resample
+
+	xout      a0ut
+
+		endop
+
+opcode  PitchShifter, a, akkki 
+        setksmps  1                   ; kr=sr 
+asig,kpitch,kfdb,kdel,iwin  xin 
+kdelrate = (kpitch-1)/kdel 
+avdel   phasor -kdelrate               ; 1 to 0 
+avdel2  phasor -kdelrate, 0.5          ; 1/2 buffer offset  
+afade  tablei avdel, iwin, 1, 0, 1     ; crossfade windows 
+afade2 tablei avdel2,iwin, 1, 0, 1 
+adump  delayr 1                  
+atap1  deltapi avdel*kdel     ; variable delay taps 
+atap2  deltapi avdel2*kdel 
+amix   =   atap1*afade + atap2*afade2  ; fade in/out the delay taps 
+       delayw  asig+amix*kfdb          ; in+feedback signals 
+       xout  amix 
+endop
