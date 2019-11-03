@@ -20,7 +20,7 @@ gkaccela init 10
 gkaccelb init 10
 gkaccelc init 10
 
-instr 1100
+instr 1100 ;optional controls for Android
 gkaccela chnget "accelerometerX"
 gkaccela *= 1
 ;printk .5, gkaccela, 4
@@ -32,9 +32,9 @@ gkaccelc chnget "accelerometerZ"
 printk .5, gkaccelc, 12
 endin
 
-instr 1
-ktrig metro 144/15
-kndx phasor p9/p3
+instr 1 ;score-based sequencer
+ktrig metro 144/15 ;sixteenths
+kndx phasor p9/p3 ;
 kgate table kndx, 101, 1
 schedkwhen ktrig*kgate, 0, 200, p4, 0, p5
 kgate table kndx, 102, 1
